@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""GRPO 冒烟骨架：0.5B + LoRA + GSM8K 可验证 reward（方案 A：纯判对错）
+"""GRPO 冒烟骨架：1.5B + LoRA + GSM8K 可验证 reward（方案 A：纯判对错）
 
 发车前三件事：
   1) inspect.signature(GRPOConfig.__init__) 核对参数名（TRL 1.12，标注 ★ 的以查签名为准）
