@@ -12,8 +12,9 @@
 | naive SFT (LoRA r8/r16) | 官方短 CoT（7473 条）× 3ep | 60.58% | **−7.58 侵蚀** |
 | RFT-SFT（拒绝采样修复） | 自产判对数据（5463 条）× 3ep | **73.46%** | **+5.30** |
 | GRPO（on-policy RLVR 首轮） | 2000 题 × G=8 在线采样（16k rollouts） | 70.28% | +2.12 |
+| GRPO v2（串联 RFT 起点续训 + Format reward） | 4000 题 × G=8 × 2ep（64k rollouts，32k/epoch） | **75.21%** | **+7.05** |
 
-**核心发现**：低质 SFT 数据会侵蚀强基座的推理能力——而修复不需要新模型，需要更好的数据。
+**核心发现**：低质 SFT 数据会侵蚀强基座的推理能力——修复不需要新模型，需要更好的数据；在修复后的 RFT checkpoint 上继续 GRPO（串联），可达 **75.21%（+7.05 over base）**。
 
 ## 🔍 三个核心发现
 
@@ -75,7 +76,9 @@ python src/grpo_smoke_1_5b.py     # GRPO（use_vllm=True, colocate）
 python src/eval_rft.py            # 各模型同理
 ```
 
-## 📌 v2 路线
+## 📌 v2 路线（已完成 → 75.21%）
+
+> v2 已于 2026-10 完成并评测（4000 题 × G=8 × 2ep，RFT 起点串联 + Format reward）——结果见上方表格与 results/RESULTS.md。以下为当时的路线设计（存档）：
 
 - **串联**：从 RFT-SFT checkpoint 续训 GRPO（离线自蒸馏 + 在线 RLVR 叠加）；
 - **难题课程**：53% 组内零方差（数据饥饿）→ 采样池向模型能力边界倾斜；
