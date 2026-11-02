@@ -38,6 +38,8 @@ def combined_reward(trajectory_result: dict, gold_answer: str) -> float:
     #3.是否使用0.1作为工具调用分上限：是，工具分不应过大或过小，且与之前format格式对比实验时保持相同维度
     # raise NotImplementedError("TODO 3(学员): reward 组合设计")
     
+    if trajectory_result.get("final_answer") is None:
+        return 0.0  # 多轮后未给出最终答案 = 任务未完成 = 0 分
     correct = score(trajectory_result['final_answer'], gold_answer)
     valid = len([content for role, content in trajectory_result['trajectory'] if role=='tool' and 'ERROR' not in content])
     valid_ratio = valid / max(trajectory_result['num_tool_calls'], 1)

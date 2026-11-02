@@ -72,6 +72,9 @@ def rollout_multiturn(llm_client, prompt_text: str, sampling_params, max_turns: 
         trajectory.append(('assistant', text))
         tool_calls = TOOL_CALL_RE.findall(text)
         boxed = BOXED_RE.findall(text)
+        if boxed:         # 已给最终答案 → 终止
+            final_answer = boxed[-1]
+            break
         if tool_calls:       # 有工具调用 → 执行 → 回填 → 继续
             messages.append({'role': 'assistant', 'content': text})
             for tool_call in tool_calls:
@@ -83,9 +86,6 @@ def rollout_multiturn(llm_client, prompt_text: str, sampling_params, max_turns: 
                 trajectory.append(('tool', tool_msg))
                 messages.append({'role': 'user', 'content': tool_msg})
                 num_tool_calls += 1
-        elif boxed:         # 已给最终答案 → 终止
-            final_answer = boxed[-1]
-            break
         else:               # 无工具调用且无最终答案 → 终止
             break
         
