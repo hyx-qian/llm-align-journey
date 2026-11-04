@@ -14,7 +14,7 @@ from peft import PeftModel
 from rollout_multiturn import TOOL_SYSTEM_PROMPT
 
 BASE = "/home/huyx/.cache/huggingface/hub/models--Qwen--Qwen2.5-1.5B-Instruct/snapshots/989aa7980e4cf806f80c7fef2b1adb7bc71aa306"
-ADAPTER = "/home/huyx/study/projects/llm-align-journey/src/agent_rl/exp/agent_sft_coldstart_v2/checkpoint-27"
+ADAPTER = "/home/huyx/study/projects/llm-align-journey/src/agent_rl/exp/agent_sft_coldstart_v4/checkpoint-45"
 AGENT_DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "gsm8k_agent_train_4k.jsonl")
 
 N_TEST = 10
