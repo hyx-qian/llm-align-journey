@@ -3,3 +3,10 @@ __pycache__/
 __pycache__
 *.log
 exp/
+
+# 内部文件（不进对外仓库）
+PLAN*.md
+!README.md
+*.log
+results/*.log
+src/agent_rl/results/*.log
