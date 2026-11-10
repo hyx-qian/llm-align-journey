@@ -8,7 +8,7 @@
   2. 多轮轨迹中，中途答案错误的轮次要惩罚吗？
   3. 权重 0.1 延续 v2 的 Format reward 设计还是调整？为什么？
 """
-from rollout_multiturn import BOXED_RE
+from env_rollout import BOXED_RE
 import re
 import sys as _sys, os as _os
 _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))

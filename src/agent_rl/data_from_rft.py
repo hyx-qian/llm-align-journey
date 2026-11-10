@@ -14,8 +14,8 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from tool_executor import safe_calc
-from rollout_multiturn import TOOL_SYSTEM_PROMPT   # 统一简短版（与推理时一致，train-serve 一致性）
+from env_tool_calc import safe_calc
+from env_rollout import TOOL_SYSTEM_PROMPT   # 统一简短版（与推理时一致，train-serve 一致性）
 
 RFT_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "gsm8k_rft.jsonl")
 OUT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "gsm8k_coldstart.jsonl")
@@ -136,7 +136,7 @@ def main():
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
     avg_rw = sum(r["n_rewrites"] for r in out_rows) / max(1, len(out_rows))
-    print(f"cold_start_data: 输入 {n_in} → 保留 {n_ok} / 跳过 {n_skip}（上限 {MAX_SAMPLES}）")
+    print(f"data_from_rft: 输入 {n_in} → 保留 {n_ok} / 跳过 {n_skip}（上限 {MAX_SAMPLES}）")
     print(f"平均改写次数: {avg_rw:.1f}  → {OUT_PATH}")
     # 抽 1 条打印人工检查
     if out_rows:

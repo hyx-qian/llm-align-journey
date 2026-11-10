@@ -24,9 +24,9 @@ import statistics
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from llm_client_vllm import VLLMClient
-from rollout_multiturn import rollout_multiturn
-from reward_agent import combined_reward
+from client_vllm import VLLMClient
+from env_rollout import rollout_multiturn
+from env_reward import combined_reward
 
 AGENT_DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "gsm8k_agent_train_4k.jsonl")
 OUT_JSONL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results", "smoke_agent_v1.jsonl")

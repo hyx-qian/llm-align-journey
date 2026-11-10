@@ -89,3 +89,32 @@ python src/eval_rft.py            # 各模型同理
 - align：训练 + colocate vLLM rollout（TRL 1.12 / transformers 5.16.1 / peft 0.20.0 / torch 2.11+cu128）
 - align-eval：评测专用栈（vLLM 0.20.1 + transformers 4.57.6，跨 run 协议一致性）
 - 硬件：RTX 5090 32G（单卡训练 + colocate）
+
+---
+
+## 🤖 Agent RL（进行中，2026-11）
+
+> 多轮工具调用 Agent 的完整链路：冷启动 SFT → 可信评测协议 → 工具集演化实验（进行中）
+> 代码索引见 [`src/agent_rl/README_代码索引.md`](src/agent_rl/README_代码索引.md)，实验数据见 [`src/agent_rl/results/RESULTS_agent_v1.md`](src/agent_rl/results/RESULTS_agent_v1.md)
+
+### 阶段 0：可信基线（已定稿）
+
+- **冷启动 SFT**：untied base（lm_head = embed.clone()，绕开 peft merge 的 tied 损坏）+ LoRA(r8) + modules_to_save + 多段样本（1433 条，tool_result 移出训练目标）+ 3ep
+- **部署**：merge 无 tied 告警 → vLLM 直接加载 merged 模型（无需 LoRA 挂载）；单卡 19G，训练 3.6 分钟
+- **基线（50 题，防泄漏尾部题）**：
+
+| 指标 | 值 |
+|---|---|
+| format_rate（输出 tool_call） | **76%** |
+| exec_rate（真实执行 safe_calc） | **76%**（与 format 完全相等，无假调用） |
+| 判对率（EM） | **64%**（base 同题 42%，**+22pp**） |
+| ans=None | 12% |
+| stop_reason | boxed 39 / max_turns 11 |
+
+**协议**：stop=["</tool_call>"] 截断生成 + 真实工具执行 + 结果回填 + 两指标分离 + stop_reason 记录。
+
+### 工具生态（T2 进行中）
+
+- 工具：calc（单步算术）/ python（sandbox 代码执行）/ sympy（符号运算）
+- 标准工具文档 v1：三工具规格 + 调用格式 + 选择规则（重叠优先 calc、失败回退）+ few-shot（≈682 tokens）
+- 研究问题：工具集演化下的新工具适应与旧工具保持（三条件成本-正确率-遗忘对比）

@@ -20,7 +20,7 @@
        （prompt 为 messages 列表，completion 由 trainer 在线生成——但你已经有
        rollout_multiturn 产出的离线轨迹，这里有个设计决策：在线 vs 离线，
        先按 GRPOTrainer 默认在线模式走，prompt 用 agent 数据的格式）；
-    4. reward_funcs：把 reward_agent.combined_reward 包装成 TRL 的 reward 函数签名
+    4. reward_funcs：把 env_reward.combined_reward 包装成 TRL 的 reward 函数签名
        （TRL 的 reward 函数签名：def fn(completions, **kwargs) -> list[float]，
        需要适配：completions 是文本列表，gold 需要从 dataset 列传入）。
 """

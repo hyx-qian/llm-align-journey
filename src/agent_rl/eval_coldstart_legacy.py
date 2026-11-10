@@ -10,14 +10,14 @@ import sys
 import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from rollout_multiturn import rollout_multiturn
-from reward_agent import combined_reward
+from env_rollout import rollout_multiturn
+from env_reward import combined_reward
 
 from vllm import LLM, SamplingParams
 from vllm.lora.request import LoRARequest
 
-BASE = "/home/huyx/.cache/huggingface/hub/models--Qwen--Qwen2.5-1.5B-Instruct/snapshots/989aa7980e4cf806f80c7fef2b1adb7bc71aa306"
-ADAPTER = "/home/huyx/study/projects/llm-align-journey/src/agent_rl/exp/agent_sft_coldstart_v2/checkpoint-27"
+BASE = "/home/huyx/study/projects/llm-align-journey/src/agent_rl/exp/agent_sft_coldstart_v4_merged"
+ADAPTER = ""
 AGENT_DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "gsm8k_agent_train_4k.jsonl")
 
 N_TEST = 50
@@ -28,18 +28,18 @@ class VLLMLoRAClient:
 
     def __init__(self, base_model: str, adapter_path: str):
         self.llm = LLM(model=base_model, dtype="bfloat16",
-                       gpu_memory_utilization=0.35, enable_lora=True, max_lora_rank=16)
+                       gpu_memory_utilization=0.35, enable_lora=False)
         self.sp = SamplingParams(temperature=0.7, top_p=0.95, max_tokens=512)
         self.lora_req = LoRARequest("coldstart", 1, adapter_path)
 
     def __call__(self, messages: list, sampling_params=None) -> str:
         sp = sampling_params or self.sp
-        outputs = self.llm.chat([messages], sp, lora_request=self.lora_req)
+        outputs = self.llm.chat([messages], sp)
         return outputs[0].outputs[0].text
 
 
 def main():
-    rows = [json.loads(l) for l in open(AGENT_DATA) if l.strip()][:N_TEST]
+    rows = [json.loads(l) for l in open(AGENT_DATA) if l.strip()][-N_TEST:]
     print(f"verify_coldstart: {len(rows)} 题")
 
     client = VLLMLoRAClient(BASE, ADAPTER)

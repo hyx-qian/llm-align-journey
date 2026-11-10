@@ -6,9 +6,10 @@
 """
 import re
 
-from tool_executor import safe_calc
+from env_tool_calc import safe_calc
 
-TOOL_CALL_RE = re.compile(r"<tool_call>\s*calc\((.*?)\)\s*</tool_call>", re.DOTALL)
+# 兼容 stop=["</tool_call>"]（生成被截断，无闭合标签）与嵌套括号
+TOOL_CALL_RE = re.compile(r"<tool_call>\s*calc\(([^<>]+)\)", re.DOTALL)
 BOXED_RE = re.compile(r"\\boxed\{([^{}]+)\}")
 MAX_TURNS = 5
 

@@ -15,11 +15,14 @@
 | **SFT 冷启动 v2** | 285 条（135 工具 47% + 150 纯CoT 53%，防遗忘混入） | LoRA r8, **3ep**（防过拟合） | **0%**（0/50） | **72%**（36/50）↑ | — | **配比稀释**：纯 CoT 53% → 模型学成"工具可选"→0% 调用 |
 | **SFT 冷启动 v3** | 455 条（405 工具 **89%** + 50 纯CoT，×3 上采样 seed42） | LoRA r8, 3ep | **0-2%**（0-1/50） | **68-70%**（34-35/50） | — | **配比证伪**：8:1 强配比仍不调用 → **配比不是根因** |
 | **SFT 冷启动 v4（★当前最优）** | 同 v3 + **modules_to_save=[embed_tokens, lm_head]** | LoRA r8 + **embedding/lm_head 解冻**, 3ep | **50%**（5/10，PEFT 推理） | **70%**（7/10） | — | **根因修复**：lm_head 冻结锁死 special token 生成 |
+| **v6（ensure_weight_tying）** | 同 v3 数据 | LoRA r8 + ensure_weight_tying, 3ep | **0%**（0/10, merged） | — | — | merge 正确（无 tied 告警）但 tied 下输出侧学不到 |
+| **v8（全参 SFT）** | 同 v4_multiturn 1433 条 | **全参** B4/accum8, 3ep, 32G 独占 | 未验证 | 未验证 | — | 训练完成（loss 0.09, tok_acc 96%），作为高成本对照 |
+| **★v9（untied base + LoRA，阶段 0 基线）** | 多段 1433 条（tool_call 72%） | **untied base**（lm_head=embed 拷贝）+ LoRA r8 + modules_to_save, 3ep, 19G, 3.6min | **76%**（38/50 真实执行） | **64%**（32/50, EM） | **12%**（6/50） | **merge 无告警 + vLLM 直接加载 + format=exec 一致** |
 
 ### 关键数字链（工具调用率演化）
 
 ```
-base 0% → v1 44%（10ep 过拟合+遗忘）→ v2 0%（配比稀释）→ v3 0-2%（8:1 证伪）→ v4 50%（lm_head 解冻）
+base 0% → v1 44%（10ep 过拟合+遗忘）→ v2 0%（配比稀释）→ v3 0-2%（8:1 证伪）→ v4 50%（lm_head 解冻，PEFT 推理）→ v6 0%（tied 下学不到）→ **v9 76%（untied base + 多段数据）**
 ```
 
 ### 各版本诊断要点
@@ -89,17 +92,35 @@ base 0% → v1 44%（10ep 过拟合+遗忘）→ v2 0%（配比稀释）→ v3 0
 | 9 | **衔接缺失**：ans=None 率 36%（工具后不收敛到 boxed） | verify v1 轨迹分析 | 衔接示范（待 v4 全量验证） |
 | 10 | **配比不是根因**：8:1 强配比仍 0-2% 调用 | v3 验证 | 深度诊断 → lm_head 根因 |
 | 11 | **LoRA target_modules 锁死 special token 生成**（tool_call 处 token acc 0% vs 其他 88.4%） | 分位置诊断 | modules_to_save → 50% ✓ |
-| 12 | **merge_and_unload 产物损坏**（tied+modules_to_save 组合） | 三加载器对照实验 | untie 重训（待执行）/ 开源 issue |
+| 12 | **merge_and_unload 产物损坏**（tied+modules_to_save 组合） | 三加载器对照 | **已解决：untied base（lm_head=embed 拷贝）→ merge 无告警、vLLM 直接加载**（11/10） |
+| 14 | **train-eval system prompt 不一致**（评测手写 system 丢了工具格式说明 → 0% 假象） | 11/10 排查 | 已修：统一用 TOOL_SYSTEM_PROMPT |
+| 15 | **stop 与正则不兼容**（闭合标签被截断 → 匹配失败 → 不执行） | 11/10 排查 | 已修：正则允许无闭合 + 嵌套括号 |
 | 13 | 采样发散：语言混杂（韩/希伯来）、HTML 塞 calc | 轨迹尾部 | 温度 0.7 + 语言过滤 + ERROR 恢复示范 |
 
 ---
 
-## 六、下一步（按 PLAN_v3 顺序）
+## 六、阶段 0 基线（v9，2026-11-10 定稿）
 
-| # | 任务 | 前置 | 验收 |
-|---|---|---|---|
-| 1 | **untie 重训**（sft_agent.py 加 tie_word_embeddings=False，2 分钟） | 报备 | merge 后工具调用率 = PEFT 水平（~50%）→ **merge 归因闭环** |
-| 2 | select_best 实现（组内筛选，参考代码已给） | — | 三思考点注释+实现 |
-| 3 | 迭代式 RAFT 3 轮（动态数据策略 if-then 随轮） | untie merge 模型 | reward_history 递增 + 工具率 44%→60%+ |
-| 4 | 50 题验收（M1 收官） | 迭代完成 | 工具率/ans=None/判对三指标 |
-| 5 | 阶段 2 WebShop（PLAN_v3 阶段 2 七天计划） | M1 | 成功率 ≥20% |
+**模型**：`exp/agent_sft_v9_merged`（untied base + LoRA merge；vLLM 直接加载，无需 LoRA 挂载）
+
+| 指标 | 10 题 | **50 题（防泄漏尾部）** |
+|---|---|---|
+| format_rate（轨迹含 tool_call） | 100% | **76%**（38/50） |
+| exec_rate（真实执行 safe_calc > 0） | 100% | **76%**（38/50，与 format 完全相等） |
+| 判对率（EM） | 60% | **64%**（32/50；base 同题 42% → **+22pp**） |
+| ans=None | 20% | **12%**（6/50） |
+| stop_reason | boxed 7 / max_turns 2 / tool_call 1 | **boxed 39 / max_turns 11** |
+
+**协议**：temperature 0.7 / top_p 0.95 / max_tokens 512 / **stop=["</tool_call>"]** + 真实 safe_calc 执行 + 结果回填 + max_turns=5。
+
+**结论**：协议一致（format=exec，无假调用）；剩余问题为 max_turns 触顶 22%（循环/未收尾）。
+
+## 七、下一步（2026-11-10 起）
+
+| # | 任务 | 状态 |
+|---|---|---|
+| 1 | 阶段 0 可信基线（v9） | 完成 |
+| 2 | max_turns 触顶分析（11 题） | 待做 |
+| 3 | 主实验：B/C 文档路线（先读 ContDa/GEPA 文档做法→设计标准文档模板）+ A 训练路线（v9） | 待做 |
+| 4 | GRPO：不做主线（RAFT 够用），作为可选高成本档 | 已决策 |
+| 5 | 论文：三条件成本-正确率-遗忘对比（动态工具演化场景） | 规划中 |

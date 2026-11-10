@@ -9,7 +9,7 @@ import json
 import os
 import sys as _sys
 _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from rollout_multiturn import TOOL_SYSTEM_PROMPT
+from env_rollout import TOOL_SYSTEM_PROMPT
 
 SRC = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "gsm8k_grpo_train_4k.jsonl")
 DST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "gsm8k_agent_train_4k.jsonl")
