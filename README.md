@@ -1,6 +1,6 @@
-# GSM8K 后训练全流程研究：侵蚀发现 → 数据修复 → 在线强化
+# LLM 后训练全流程研究：单轮 RLVR → 多轮工具 Agent
 
-> **Qwen2.5-1.5B-Instruct ｜ SFT → RFT → DPO → GRPO ｜ 客观评测协议 ｜ 全程排障留档**
+> **Qwen2.5-1.5B-Instruct ｜ 单轮：SFT → RFT → DPO → GRPO ｜ 多轮：冷启动 SFT → 工具调用协议 → 工具生态 ｜ 客观评测 ｜ 全程排障留档**
 > 一个 34 天的后训练研究闭环：先从零手写底层，再用框架实战，最后回答"为什么"——
 > 完整实验数据见 [`results/RESULTS.md`](results/RESULTS.md)，失败分析见 [`results/FAILURE_ANALYSIS.md`](results/FAILURE_ANALYSIS.md)。
 
