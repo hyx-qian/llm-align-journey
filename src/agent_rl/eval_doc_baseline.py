@@ -18,6 +18,7 @@ import argparse
 import json
 import os
 import statistics
+import time
 import sys
 
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
@@ -26,7 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from vllm import LLM, SamplingParams
 from env_rollout import rollout_multiturn
-from env_tool_doc import TOOL_DOC_V1
+from env_tool_doc import TOOL_DOC_CALC, TOOL_DOC_T2, TOOL_DOC_T3, TOOL_DOC_V1
 from gsm8k_eval import score
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -49,39 +50,50 @@ class DocClient:
 
 
 def load_eval_set(name: str, n: int):
-    """返回 [(question, gold_answer)]。"""
-    if name == "E_old":
-        rows = [json.loads(l) for l in open(AGENT_DATA) if l.strip()][-n:]
-        return [(next((m["content"] for m in r["prompt"] if m["role"] == "user"), ""), r.get("gold_answer", ""))
-                for r in rows]
-    path = {"E_new": E_NEW_DATA, "E_mix": E_MIX_DATA}[name]
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"{path} 不存在（先跑 data_new_tasks.py）")
-    rows = [json.loads(l) for l in open(path) if l.strip()][:n]
-    return [(r["question"], r["gold_answer"]) for r in rows]
+    """按名字读评测集文件（返回 [(question, gold_answer)]）。"""
+    mapping = {
+        "E_old_T1": "e_old_T1_200.jsonl",
+        "E_old_T2": "e_old_T1_200.jsonl",
+        "E_old_T3": "e_old_T3_250.jsonl",
+        "E_new_T2": "e_new_python_tasks.jsonl",
+        "E_new_T3": "e_new_T3_sympy.jsonl",
+        "E_mix_T2": "e_mix_T2_collab.jsonl",
+        "E_mix_T3": "e_mix_T3_3tool.jsonl",
+    }
+    if name not in mapping:
+        raise ValueError(f"unknown eval set {name}")
+    path = os.path.join(HERE, "data", mapping[name])
+    rows = [json.loads(l) for l in open(path) if l.strip()]
+    return [(r["question"], r["gold_answer"]) for r in rows][:n]
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True, help="模型路径（1.5B base 或 7B base）")
-    ap.add_argument("--eval", default="E_old", choices=["E_old", "E_new", "E_mix"])
-    ap.add_argument("--n", type=int, default=200)
+    ap.add_argument("--eval", default="E_old_T1", choices=["E_old_T1","E_old_T2","E_old_T3","E_new_T2","E_new_T3","E_mix_T2","E_mix_T3"])
+    ap.add_argument("--n", type=int, default=50)
     ap.add_argument("--out", default=None)
-    ap.add_argument("--gpu-mem", type=float, default=0.85)
+    ap.add_argument("--doc", default="t3", choices=["calc", "t2", "t3", "sys"],
+                    help="calc=TOOL_DOC_CALC / t2=calc+python / t3=三工具 / sys=训练同款TOOL_SYSTEM_PROMPT")
+    ap.add_argument("--gpu-mem", type=float, default=0.35)
     args = ap.parse_args()
 
+    from env_rollout import TOOL_SYSTEM_PROMPT as _SYS
+    system_prompt = {"calc": TOOL_DOC_CALC, "t2": TOOL_DOC_T2, "t3": TOOL_DOC_T3, "sys": _SYS}[args.doc]
     client = DocClient(args.model, args.gpu_mem)
     sp = SamplingParams(temperature=0.0, top_p=0.95, max_tokens=512, stop=["</tool_call>"])
 
     data = load_eval_set(args.eval, args.n)
-    doc_tokens = len(client.tokenizer(TOOL_DOC_V1)["input_ids"])
+    doc_tokens = len(client.tokenizer(system_prompt)["input_ids"])
     results = []
     n_fmt = n_exec = n_ok = n_none = 0
     in_toks, out_toks = [], []
     reasons, usage = {}, {}
 
     for i, (q, gold) in enumerate(data):
-        tr = rollout_multiturn(client, q, sp, system_prompt=TOOL_DOC_V1)
+        _t0 = time.time()
+        tr = rollout_multiturn(client, q, sp, system_prompt=system_prompt)
+        _dt_ms = (time.time() - _t0) * 1000
         traj_text = " ".join(c for _, c in tr["trajectory"])
         has_fmt = "<tool_call>" in traj_text
         has_exec = tr["num_tool_calls"] > 0
@@ -96,7 +108,8 @@ def main():
         out_toks.append(sum(len(client.tokenizer(c)["input_ids"]) for r, c in tr["trajectory"] if r == "assistant"))
         results.append({"idx": i, "q": q[:80], "turns": tr["turns_used"], "calls": tr["num_tool_calls"],
                         "usage": tr["tool_usage"], "ans": tr["final_answer"], "gold": gold[:40],
-                        "em": em, "format": has_fmt, "exec": has_exec, "stop_reason": tr["stop_reason"]})
+                        "em": em, "format": has_fmt, "exec": has_exec, "stop_reason": tr["stop_reason"],
+                        "in_tok": in_toks[-1], "out_tok": out_toks[-1], "latency_ms": _dt_ms})
         print(f"[{i}] calls={tr['num_tool_calls']}{tr['tool_usage']} fmt={has_fmt} exec={has_exec} "
               f"em={em:.0f} reason={tr['stop_reason']} ans={tr['final_answer']}")
 
@@ -105,8 +118,9 @@ def main():
     print(f"model={os.path.basename(args.model)} | eval={args.eval} | n={n}")
     print(f"format_rate: {n_fmt/n*100:.0f}% | exec_rate: {n_exec/n*100:.0f}% | EM: {n_ok/n*100:.0f}% | ans=None: {n_none/n*100:.0f}%")
     print(f"tool_usage: {usage} | stop_reason: {reasons}")
-    print(f"成本(每題): 输入 {statistics.mean(in_toks):.0f} tokens（含文档 {doc_tokens}） | 输出 {statistics.mean(out_toks):.0f} tokens")
-    out_path = args.out or f"results/doc_baseline_{os.path.basename(args.model)}_{args.eval}.jsonl"
+    lat = [_r.get("latency_ms", 0) for _r in results]
+    print(f"成本(每題): 输入 {statistics.mean(in_toks):.0f} tokens（含文档 {doc_tokens}） | 输出 {statistics.mean(out_toks):.0f} tokens | 耗时 {statistics.mean(lat)/1000:.1f}s")
+    out_path = args.out or f"results/doc_{args.doc}_{os.path.basename(args.model)}_{args.eval}.jsonl"
     os.makedirs("results", exist_ok=True)
     with open(out_path, "w") as f:
         for r in results:
