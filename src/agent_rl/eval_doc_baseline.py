@@ -49,6 +49,38 @@ class DocClient:
         return out.outputs[0].text
 
 
+def compute_tra(trajectory):
+    """Tool-Result Adoption：工具返回值出现在下一轮 assistant 输出的比例。
+
+    局限：模型可能心算得到同样数值 → 是「结果一致性」而非严格「因果采纳」。
+    """
+    import re as _re
+    adopt = total = 0
+    for i, (role, content) in enumerate(trajectory):
+        if role != "tool":
+            continue
+        m = _re.search(r"<tool_result>(.*?)</tool_result>", content, _re.S)
+        if not m:
+            continue
+        res = m.group(1).strip()
+        nxt = next((c for r, c in trajectory[i + 1:] if r == "assistant"), None)
+        if nxt is None:
+            continue
+        total += 1
+        hit = False
+        try:
+            val = float(res)
+            for cand in {res, f"{val:g}", str(int(val)) if val == int(val) else res}:
+                if cand and cand in nxt:
+                    hit = True
+                    break
+        except ValueError:
+            if res[:20] in nxt:
+                hit = True
+        adopt += int(hit)
+    return adopt / total if total else 0.0
+
+
 def load_eval_set(name: str, n: int):
     """按名字读评测集文件（返回 [(question, gold_answer)]）。"""
     mapping = {
@@ -56,6 +88,8 @@ def load_eval_set(name: str, n: int):
         "E_old_T2": "e_old_T1_200.jsonl",
         "E_old_T3": "e_old_T3_250.jsonl",
         "E_new_T2": "e_new_python_tasks.jsonl",
+        "E_new_T2_py": "e_new_T2_python_only_30.jsonl",
+        "E_new_T2_strict": "e_new_T2_python_only_strict.jsonl",
         "E_new_T3": "e_new_T3_sympy.jsonl",
         "E_mix_T2": "e_mix_T2_collab.jsonl",
         "E_mix_T3": "e_mix_T3_3tool.jsonl",
@@ -70,7 +104,7 @@ def load_eval_set(name: str, n: int):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True, help="模型路径（1.5B base 或 7B base）")
-    ap.add_argument("--eval", default="E_old_T1", choices=["E_old_T1","E_old_T2","E_old_T3","E_new_T2","E_new_T3","E_mix_T2","E_mix_T3"])
+    ap.add_argument("--eval", default="E_old_T1", choices=["E_old_T1","E_old_T2","E_old_T3","E_new_T2","E_new_T2_py","E_new_T2_strict","E_new_T3","E_mix_T2","E_mix_T3"])
     ap.add_argument("--n", type=int, default=50)
     ap.add_argument("--out", default=None)
     ap.add_argument("--doc", default="t3", choices=["calc", "t2", "t3", "sys"],
@@ -109,7 +143,7 @@ def main():
         results.append({"idx": i, "q": q[:80], "turns": tr["turns_used"], "calls": tr["num_tool_calls"],
                         "usage": tr["tool_usage"], "ans": tr["final_answer"], "gold": gold[:40],
                         "em": em, "format": has_fmt, "exec": has_exec, "stop_reason": tr["stop_reason"],
-                        "in_tok": in_toks[-1], "out_tok": out_toks[-1], "latency_ms": _dt_ms})
+                        "in_tok": in_toks[-1], "out_tok": out_toks[-1], "latency_ms": _dt_ms, "tra": compute_tra(tr["trajectory"]), "trajectory": tr["trajectory"]})
         print(f"[{i}] calls={tr['num_tool_calls']}{tr['tool_usage']} fmt={has_fmt} exec={has_exec} "
               f"em={em:.0f} reason={tr['stop_reason']} ans={tr['final_answer']}")
 
@@ -117,7 +151,9 @@ def main():
     print("=" * 60)
     print(f"model={os.path.basename(args.model)} | eval={args.eval} | n={n}")
     print(f"format_rate: {n_fmt/n*100:.0f}% | exec_rate: {n_exec/n*100:.0f}% | EM: {n_ok/n*100:.0f}% | ans=None: {n_none/n*100:.0f}%")
+    tras = [_r.get("tra", 0) for _r in results if _r.get("calls", 0) > 0]
     print(f"tool_usage: {usage} | stop_reason: {reasons}")
+    print(f"TRA（结果采纳率）: {sum(tras)/len(tras)*100:.0f}% （基于 {len(tras)} 条有调用的轨迹）" if tras else "TRA: N/A（无调用）")
     lat = [_r.get("latency_ms", 0) for _r in results]
     print(f"成本(每題): 输入 {statistics.mean(in_toks):.0f} tokens（含文档 {doc_tokens}） | 输出 {statistics.mean(out_toks):.0f} tokens | 耗时 {statistics.mean(lat)/1000:.1f}s")
     out_path = args.out or f"results/doc_{args.doc}_{os.path.basename(args.model)}_{args.eval}.jsonl"
