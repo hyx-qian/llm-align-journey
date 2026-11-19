@@ -126,6 +126,9 @@ python src/eval_rft.py            # 各模型同理
 
 **Seconds per Correct（秒/正解）**：7B **2.56s**（EM 90%）｜v9 **1.32s**（EM 68%）｜1.5B 文档 1.82s（EM 33%）——**v9 最快（比 7B 快 1.9×）**；每 pp EM 的 token 成本 v9 7.3 vs 7B 16.4：成本敏感选 v9，效果敏感选 7B。
 
+
+**指标出处（严格标注，不占用他人）**：（tokens/EM）引用 2026 的 Cost-of-Pass / Skan 2026 的 cost-per-successful-task；（比调用了哪些工具）属 Ragas/Arize/FinMCP-Bench，**本工作的 TRA 是不同层面**（比工具结果是否被下一轮采纳，受 RAG faithfulness 启发）； 引自 ContDa（ACL 2026）， 引自 Berkeley 2607；（cost per recovered point）检索范围内未见，为本工作提出（T2 使用）。
+
 **四个发现**：①文档路线有强规模依赖（1.5B 格式遵循 0% → 7B 44%）②T1 阶段 7B+文档 EM 88% vs 1.5B SFT 68%（+20pp），但推理成本 5-10× ③训练后推理成本反降 60%（文档短） ④「工具必要性」是程度问题（LLM 心算可完成部分），Discover 须用同批题差值（基线 = 35%）。
 
 ### 工具生态（T2 进行中）
