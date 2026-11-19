@@ -47,7 +47,7 @@ def extra_metrics(rows):
             lats.append(r["latency_ms"])
     return {
         "n": n,
-        "call_precision": (1 - error_calls / total_calls) if total_calls else None,
+        "exec_success": (1 - error_calls / total_calls) if total_calls else None,
         "total_calls": total_calls,
         "avg_turns": (sum(turns) / len(turns)) if turns else None,
         "avg_tokens": (sum(toks) / len(toks)) if toks else None,
@@ -60,7 +60,7 @@ def extra_metrics(rows):
 
 def main():
     files = sorted(glob.glob(os.path.join(RESULTS, "doc_*.jsonl")))
-    header = f"{'实验':<44}{'n':>4}{'call_prec':>10}{'turns':>7}{'tok':>7}{'EM':>6}{'tok/正解':>9}{'TRA':>6}{'秒/题':>7}"
+    header = f"{'实验':<44}{'n':>4}{'ExecSR':>10}{'turns':>7}{'tok':>7}{'EM':>6}{'tok/正解':>9}{'TRA':>6}{'秒/题':>7}"
     print(header)
     print("-" * len(header))
     for f in files:
@@ -68,7 +68,7 @@ def main():
         m = extra_metrics(load(f))
         if not m:
             continue
-        cp = f"{m['call_precision']*100:.0f}%" if m["call_precision"] is not None else "N/A"
+        cp = f"{m['exec_success']*100:.0f}%" if m["exec_success"] is not None else "N/A"
         tu = f"{m['avg_turns']:.1f}" if m["avg_turns"] is not None else "N/A"
         to = f"{m['avg_tokens']:.0f}" if m["avg_tokens"] is not None else "N/A"
         cc = f"{m['cost_per_correct']:.0f}" if m["cost_per_correct"] is not None else "N/A"
