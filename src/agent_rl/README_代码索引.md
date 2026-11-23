@@ -8,9 +8,9 @@
 |---|---|
 | `env_rollout.py` | 多轮 rollout（生成→解析→执行→回填；三工具解析/区间去重/平衡 boxed） |
 | `env_reward.py` | 奖励（判对 + 工具有效性） |
-| `env_tool_calc.py` | calc（单步算术） |
-| `env_tool_python.py` | python sandbox（**v9 代码场景 code_runner 的基础**） |
-| `env_tool_sympy.py` | sympy（符号运算） |
+| `env_tool_calc.py` | calc（单步算术）——**已内化，不参与演化链**（v9 训练痕迹；E_old 题目用） |
+| `env_tool_python.py` | python sandbox——**已部分内化，不参与数学场景**；代码场景 code_runner 底座 |
+| `env_tool_sympy.py` | sympy（符号运算）——**数学 T1 的新工具（第 1 次演化）** |
 | `env_tool_doc.py` | 三版文档（TOOL_DOC_CALC/T2/T3）——**v9 需加 Z3 版/代码版** |
 | `eval_doc_baseline.py` | **主评测**（--doc/--eval/--gpu-mem；记录 TRA/轨迹/latency/tokens） |
 | `train_sft.py` | 冷启动 SFT（untied+LoRA+modules_to_save） |
