@@ -18,12 +18,18 @@ from collections import Counter
 from env_tool_calc import safe_calc
 from env_tool_python import safe_python
 from env_tool_sympy import safe_sympy
+from env_tool_z3 import safe_z3
 
 # calc：无引号表达式；[^<>]+ 排尖括号（遇 </tool_call> 的 < 即停），兼容嵌套括号
 CALC_RE = re.compile(r"<tool_call>\s*calc\(([^<>]+)\)", re.DOTALL)
 # python：参数为字符串（单/双引号均可）
 PYTHON_RE = re.compile(r"""<tool_call>\s*python\(\s*["'](.*?)["']\s*\)""", re.DOTALL)
 # sympy：2-3 个字符串参数
+# z3：两个字符串参数（constraints, var_spec）
+Z3_RE = re.compile(
+    r'<tool_call>\s*z3\(\s*["\'](.*?)["\']\s*,\s*["\'](.*?)["\']\s*\)',
+    re.DOTALL,
+)
 SYMPY_RE = re.compile(
     r"""<tool_call>\s*sympy\(\s*["'](.*?)["']\s*,\s*["'](.*?)["']\s*(?:,\s*["'](.*?)["']\s*)?\)""",
     re.DOTALL,
@@ -71,6 +77,8 @@ def find_tool_calls(text: str):
     raw = []
     for m in SYMPY_RE.finditer(text):
         raw.append(("sympy", (m.group(1), m.group(2), (m.group(3) or "x").strip() or "x"), m.start(), m.end()))
+    for m in Z3_RE.finditer(text):
+        raw.append(("z3", (m.group(1), m.group(2)), m.start(), m.end()))
     for m in PYTHON_RE.finditer(text):
         raw.append(("python", (m.group(1),), m.start(), m.end()))
     for m in CALC_RE.finditer(text):
@@ -94,6 +102,8 @@ def execute_tool(name: str, args: tuple) -> str:
             return safe_calc(args[0])
         if name == "python":
             return safe_python(args[0])
+        if name == "z3":
+            return safe_z3(args[0], args[1] if len(args) > 1 else "x:Int")
         if name == "sympy":
             return safe_sympy(args[0], args[1], args[2] if len(args) > 2 else "x")
         return f"ERROR: unknown tool '{name}'"
