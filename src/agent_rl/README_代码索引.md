@@ -70,3 +70,19 @@ python train_sft.py
 # 3. 生成 untied base（一次性）
 python deploy_untie_base.py
 ```
+
+---
+
+## v9 新增（待建，学员实现，2026-11-23 起）
+
+| 文件 | 职责 | 状态 |
+|---|---|---|
+| **env_tool_z3.py** | Z3 约束求解（沙箱：超时 5s/约束≤200字符/变量≤5） | ⬜ 待写 |
+| **env_tool_code.py** | code_runner（运行代码，基于 env_tool_python 扩展） | ⬜ 待写 |
+| **env_tool_test.py** | test_runner（pytest 通过率，subprocess 沙箱） | ⬜ 待写 |
+| **train_tctd.py** | TCTD（Teacher-Corrected Trajectory Distillation，原 OPD 改名） | ⬜ 待写 |
+| **data_z3_tasks.py** | Z3 约束题模板化生成（60+ 题） | ⬜ 待写 |
+| **data_code_tasks.py** | HumanEval/MBPP 加载与格式化 | ⬜ 待写 |
+
+> 旧 v8 产物已归档：（T3 数据/旧数据链）、（临时脚本）。
+> 已删：（5.8G 全参）/ 旧日志 / 缓存。
