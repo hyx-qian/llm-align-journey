@@ -27,7 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from vllm import LLM, SamplingParams
 from env_rollout import rollout_multiturn
-from env_tool_doc import TOOL_DOC_CALC, TOOL_DOC_T2, TOOL_DOC_T3, TOOL_DOC_V1
+from env_tool_doc import TOOL_DOC_CALC, TOOL_DOC_T2, TOOL_DOC_T3, TOOL_DOC_V1, DOCS
 from gsm8k_eval import score
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -107,13 +107,13 @@ def main():
     ap.add_argument("--eval", default="E_old_T1", choices=["E_old_T1","E_old_T2","E_old_T3","E_new_T2","E_new_T2_py","E_new_T2_strict","E_new_T3","E_mix_T2","E_mix_T3"])
     ap.add_argument("--n", type=int, default=50)
     ap.add_argument("--out", default=None)
-    ap.add_argument("--doc", default="t3", choices=["calc", "t2", "t3", "sys"],
+    ap.add_argument("--doc", default="t3", choices=["calc", "t2", "t3", "sys", "sympy", "sympy_z3", "code", "code_test"],
                     help="calc=TOOL_DOC_CALC / t2=calc+python / t3=三工具 / sys=训练同款TOOL_SYSTEM_PROMPT")
     ap.add_argument("--gpu-mem", type=float, default=0.35)
     args = ap.parse_args()
 
     from env_rollout import TOOL_SYSTEM_PROMPT as _SYS
-    system_prompt = {"calc": TOOL_DOC_CALC, "t2": TOOL_DOC_T2, "t3": TOOL_DOC_T3, "sys": _SYS}[args.doc]
+    system_prompt = {"sys": _SYS, **DOCS}.get(args.doc) or {"calc": TOOL_DOC_CALC, "t2": TOOL_DOC_T2, "t3": TOOL_DOC_T3}[args.doc]
     client = DocClient(args.model, args.gpu_mem)
     sp = SamplingParams(temperature=0.0, top_p=0.95, max_tokens=512, stop=["</tool_call>"])
 

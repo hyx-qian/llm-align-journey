@@ -20,6 +20,21 @@ _TRANSFORMS = standard_transformations + (implicit_multiplication_application,)
 def safe_sympy(expr: str, op: str = "solve", var: str = "x") -> str:
     expr = (expr or "").strip()
     op = (op or "solve").strip().lower()
+    subs_val = None
+    subs_range = None
+    if "@" in op:
+        op, _sv = op.split("@", 1)
+        if "," in _sv:
+            _a, _b = _sv.split(",", 1)
+            try:
+                subs_range = (float(_a), float(_b))
+            except ValueError:
+                return f"ERROR: bad bounds '{_sv}'"
+        else:
+            try:
+                subs_val = float(_sv)
+            except ValueError:
+                return f"ERROR: bad subs value '{_sv}'"
     var = (var or "x").strip() or "x"
 
     if not expr:
@@ -56,6 +71,11 @@ def safe_sympy(expr: str, op: str = "solve", var: str = "x") -> str:
                 "diff": lambda: sympy.diff(e, sym),
                 "integrate": lambda: sympy.integrate(e, sym),
             }[op]()
+            if subs_range is not None and op == "integrate":
+                res = sympy.integrate(e, (sym, subs_range[0], subs_range[1]))
+            if subs_val is not None:
+                v = int(subs_val) if subs_val == int(subs_val) else subs_val
+                res = sympy.simplify(sympy.sympify(res).subs(sym, v))
 
         return str(res)[:500]
     except Exception as e:
